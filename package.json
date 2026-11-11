@@ -1,3 +1,4 @@
+
 {
   "name": "sunsettrack",
   "version": "0.1.0",
@@ -17,8 +18,16 @@
     "middleware",
     "api-monitoring"
   ],
-  "author": "",
+  "author": "Dhruvil Shah",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dhruvil-ux106/sunsettrack.git"
+  },
+  "homepage": "https://github.com/Dhruvil-ux106/sunsettrack#readme",
+  "bugs": {
+    "url": "https://github.com/Dhruvil-ux106/sunsettrack/issues"
+  },
   "engines": {
     "node": ">=18"
   },
@@ -33,5 +42,8 @@
   "devDependencies": {
     "express": "^4.22.3",
     "supertest": "^7.3.2"
+  },
+  "dependencies": {
+    "path-to-regexp": "^0.1.13"
   }
 }

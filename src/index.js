@@ -2,6 +2,7 @@
 const {
     registerRoute,
     getRoute,
+    findMatchingRoute,
     getAllRoutes,
     removeRoute,
     clearRegistry
@@ -27,20 +28,17 @@ const {
 
 module.exports = {
     sunsetTrack,
-
     registerRoute,
     getRoute,
+    findMatchingRoute,
     getAllRoutes,
     removeRoute,
-
+    clearRegistry,
     generateReport,
     getSummary,
-
     getRouteStats,
     getAllStats,
     resetStats,
-
     getLifecycleStatus,
-    getRemainingDays,
-    clearRegistry
+    getRemainingDays
 };

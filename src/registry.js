@@ -1,4 +1,6 @@
 
+const pathToRegexp = require("path-to-regexp");
+
 const routes = new Map();
 
 const ALLOWED_METHODS = [
@@ -38,8 +40,10 @@ function validateRoute(config) {
         sunsetAt
     } = config;
 
-    if (typeof method !== "string" ||
-        !ALLOWED_METHODS.includes(method.toUpperCase())) {
+    if (
+        typeof method !== "string" ||
+        !ALLOWED_METHODS.includes(method.toUpperCase())
+    ) {
         throw new Error("Invalid HTTP method");
     }
 
@@ -110,6 +114,36 @@ function getRoute(method, path) {
     return routes.get(key);
 }
 
+function findMatchingRoute(method, requestPath) {
+    const normalizedMethod = method.toUpperCase();
+
+    // First priority: exact route matches
+    for (const route of routes.values()) {
+        if (
+            route.method === normalizedMethod &&
+            route.path === requestPath
+        ) {
+            return route;
+        }
+    }
+
+    // Second priority: dynamic route matches
+    for (const route of routes.values()) {
+        if (route.method !== normalizedMethod) {
+            continue;
+        }
+
+        const keys = [];
+        const regex = pathToRegexp(route.path, keys);
+
+        if (regex.test(requestPath)) {
+            return route;
+        }
+    }
+
+    return undefined;
+}
+
 function getAllRoutes() {
     return Array.from(routes.values());
 }
@@ -126,6 +160,7 @@ function clearRegistry() {
 module.exports = {
     registerRoute,
     getRoute,
+    findMatchingRoute,
     getAllRoutes,
     removeRoute,
     clearRegistry
