@@ -3,6 +3,7 @@ const {
     registerRoute,
     getRoute,
     findMatchingRoute,
+    extractRouteParams,
     getAllRoutes,
     removeRoute,
     clearRegistry
@@ -40,5 +41,6 @@ module.exports = {
     getAllStats,
     resetStats,
     getLifecycleStatus,
-    getRemainingDays
+    getRemainingDays,
+    extractRouteParams
 };

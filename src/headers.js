@@ -1,4 +1,5 @@
-function generateHeaders(route) {
+
+function generateHeaders(route, requestParams = {}) {
     const headers = {};
 
     if (route.deprecatedAt) {
@@ -14,7 +15,27 @@ function generateHeaders(route) {
     }
 
     if (route.successor) {
-        headers.Link = `<${route.successor}>; rel="successor-version"`;
+        let successorPath = route.successor;
+
+        for (const [key, value] of Object.entries(requestParams)) {
+            const escapedKey = key.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            const parameterPattern = new RegExp(
+                `:${escapedKey}(?=/|\\?|$)`,
+                "g"
+            );
+
+            successorPath = successorPath.replace(
+                parameterPattern,
+                encodeURIComponent(String(value))
+            );
+        }
+
+        headers.Link =
+            `<${successorPath}>; rel="successor-version"`;
     }
 
     return headers;

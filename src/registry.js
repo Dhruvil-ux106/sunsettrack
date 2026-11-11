@@ -144,6 +144,32 @@ function findMatchingRoute(method, requestPath) {
     return undefined;
 }
 
+function extractRouteParams(routePath, requestPath) {
+    const keys = [];
+    const regex = pathToRegexp(routePath, keys);
+    const match = regex.exec(requestPath);
+
+    if (!match) {
+        return {};
+    }
+
+    const params = {};
+
+    keys.forEach((key, index) => {
+        const value = match[index + 1];
+
+        if (value !== undefined) {
+            try {
+                params[key.name] = decodeURIComponent(value);
+            } catch {
+                params[key.name] = value;
+            }
+        }
+    });
+
+    return params;
+}
+
 function getAllRoutes() {
     return Array.from(routes.values());
 }
@@ -161,6 +187,7 @@ module.exports = {
     registerRoute,
     getRoute,
     findMatchingRoute,
+    extractRouteParams,
     getAllRoutes,
     removeRoute,
     clearRegistry

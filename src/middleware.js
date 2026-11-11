@@ -1,5 +1,9 @@
 
-const { findMatchingRoute } = require("./registry");
+const {
+    findMatchingRoute,
+    extractRouteParams
+} = require("./registry");
+
 const { generateHeaders } = require("./headers");
 const { trackRequest } = require("./tracker");
 
@@ -11,20 +15,37 @@ function sunsetTrack(options = {}) {
         // Include router mount prefixes
         const fullPath = `${req.baseUrl || ""}${req.path}`;
 
-        // Match both static and dynamic registered routes
-        const route = findMatchingRoute(req.method, fullPath);
+        // Find matching registered route
+        const route = findMatchingRoute(
+            req.method,
+            fullPath
+        );
 
         if (!route) {
             return next();
         }
 
+        // Identify API client
         const clientId = req.get(headerName) || "unknown";
 
-        // Track deprecated endpoint usage
-        trackRequest(req.method, route.path, clientId);
+        // Track against registered route pattern
+        trackRequest(
+            req.method,
+            route.path,
+            clientId
+        );
 
-        // Generate and attach deprecation headers
-        const headers = generateHeaders(route);
+        // Extract parameters from the actual request path
+        const requestParams = extractRouteParams(
+            route.path,
+            fullPath
+        );
+
+        // Generate headers using extracted parameters
+        const headers = generateHeaders(
+            route,
+            requestParams
+        );
 
         Object.entries(headers).forEach(([name, value]) => {
             res.setHeader(name, value);
