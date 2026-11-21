@@ -17,20 +17,33 @@ function generateHeaders(route, requestParams = {}) {
     if (route.successor) {
         let successorPath = route.successor;
 
-        for (const [key, value] of Object.entries(requestParams)) {
-            const escapedKey = key.replace(
+        const parameterNames = [
+            ...successorPath.matchAll(/:([a-zA-Z0-9_]+)/g)
+        ].map(match => match[1]);
+
+        for (const name of parameterNames) {
+            if (
+                requestParams[name] === undefined ||
+                requestParams[name] === null
+            ) {
+                throw new Error(
+                    `Missing successor URL parameter: ${name}`
+                );
+            }
+
+            const escapedName = name.replace(
                 /[.*+?^${}()|[\]\\]/g,
                 "\\$&"
             );
 
             const parameterPattern = new RegExp(
-                `:${escapedKey}(?=/|\\?|$)`,
+                `:${escapedName}(?=/|\\?|$)`,
                 "g"
             );
 
             successorPath = successorPath.replace(
                 parameterPattern,
-                encodeURIComponent(String(value))
+                encodeURIComponent(String(requestParams[name]))
             );
         }
 

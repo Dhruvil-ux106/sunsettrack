@@ -84,3 +84,46 @@ test("should replace multiple parameters in successor URL", () => {
         '</api/v2/users/10/posts/25>; rel="successor-version"'
     );
 });
+
+
+test("should reject missing successor URL parameters", () => {
+    assert.throws(
+        () => {
+            generateHeaders(
+                {
+                    successor: "/api/v2/users/:id"
+                },
+                {}
+            );
+        },
+        /Missing successor URL parameter: id/
+    );
+});
+
+test("should reject null successor URL parameters", () => {
+    assert.throws(
+        () => {
+            generateHeaders(
+                {
+                    successor: "/api/v2/users/:id"
+                },
+                { id: null }
+            );
+        },
+        /Missing successor URL parameter: id/
+    );
+});
+
+test("should replace repeated successor URL parameters", () => {
+    const headers = generateHeaders(
+        {
+            successor: "/api/v2/users/:id/posts/:id"
+        },
+        { id: 42 }
+    );
+
+    assert.equal(
+        headers.Link,
+        '</api/v2/users/42/posts/42>; rel="successor-version"'
+    );
+});
