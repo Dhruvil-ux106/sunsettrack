@@ -12,47 +12,46 @@ function sunsetTrack(options = {}) {
         options.clientIdHeader || "X-API-Client-ID";
 
     return function (req, res, next) {
-        // Include router mount prefixes
-        const fullPath = `${req.baseUrl || ""}${req.path}`;
+        try {
+            const fullPath = `${req.baseUrl || ""}${req.path}`;
 
-        // Find matching registered route
-        const route = findMatchingRoute(
-            req.method,
-            fullPath
-        );
+            const route = findMatchingRoute(
+                req.method,
+                fullPath
+            );
 
-        if (!route) {
+            if (!route) {
+                return next();
+            }
+
+            const clientId = req.get(headerName) || "unknown";
+
+            const requestParams = extractRouteParams(
+                route.path,
+                fullPath
+            );
+
+            const headers = generateHeaders(
+                route,
+                requestParams
+            );
+
+            trackRequest(
+                req.method,
+                route.path,
+                clientId
+            );
+
+            Object.entries(headers).forEach(([name, value]) => {
+                res.setHeader(name, value);
+            });
+
             return next();
+        } catch (error) {
+            return next(error);
         }
-
-        // Identify API client
-        const clientId = req.get(headerName) || "unknown";
-
-        // Track against registered route pattern
-        trackRequest(
-            req.method,
-            route.path,
-            clientId
-        );
-
-        // Extract parameters from the actual request path
-        const requestParams = extractRouteParams(
-            route.path,
-            fullPath
-        );
-
-        // Generate headers using extracted parameters
-        const headers = generateHeaders(
-            route,
-            requestParams
-        );
-
-        Object.entries(headers).forEach(([name, value]) => {
-            res.setHeader(name, value);
-        });
-
-        next();
     };
 }
+
 
 module.exports = { sunsetTrack };

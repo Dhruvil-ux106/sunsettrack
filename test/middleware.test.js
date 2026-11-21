@@ -316,3 +316,40 @@ test("should substitute dynamic parameters in successor Link header", async () =
     const stats = getRouteStats("GET", "/api/v1/users/:id");
     assert.strictEqual(stats.totalRequests, 1);
 });
+
+// 11. Forward successor parameter errors to Express
+test("should forward successor parameter errors to Express", async () => {
+    clearRegistry();
+    resetStats();
+
+    registerRoute({
+        method: "GET",
+        path: "/api/v1/users",
+        successor: "/api/v2/users/:id",
+        deprecatedAt: "2026-11-01"
+    });
+
+    const app = express();
+    app.use(sunsetTrack());
+
+    app.get("/api/v1/users", (req, res) => {
+        res.json({ message: "Old API" });
+    });
+
+    app.use((err, req, res, next) => {
+        res.status(500).json({
+            error: err.message
+        });
+    });
+
+    const response = await request(app)
+        .get("/api/v1/users");
+
+    assert.strictEqual(response.status, 500);
+    assert.deepStrictEqual(response.body, {
+        error: "Missing successor URL parameter: id"
+    });
+
+    const stats = getRouteStats("GET", "/api/v1/users");
+    assert.strictEqual(stats, null);
+});
