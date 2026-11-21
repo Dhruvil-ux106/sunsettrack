@@ -13,121 +13,228 @@ const ALLOWED_METHODS = [
     "HEAD"
 ];
 
+// Validate a real calendar date
+function isValidCalendarDate(year, month, day) {
+    const date = new Date(0);
+
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCFullYear(year, month - 1, day);
+
+    return (
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+    );
+}
+
+// Validate YYYY-MM-DD or ISO 8601 date-time
 function isValidDate(value) {
-    if (typeof value !== "string" || value.trim() === "") {
+    if (
+        typeof value !== "string" ||
+        value.trim() !== value
+    ) {
         return false;
     }
 
-    const date = new Date(value);
+    const dateOnlyPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+    const dateOnlyMatch = value.match(dateOnlyPattern);
 
-    return !Number.isNaN(date.getTime());
-}
+    if (dateOnlyMatch) {
+        const [, year, month, day] = dateOnlyMatch;
 
-function validateRoute(config) {
-    if (
-        !config ||
-        typeof config !== "object" ||
-        Array.isArray(config)
-    ) {
-        throw new Error("Route configuration must be an object");
+        return isValidCalendarDate(
+            Number(year),
+            Number(month),
+            Number(day)
+        );
     }
 
-    const {
-        method,
-        path,
-        successor,
-        deprecatedAt,
-        sunsetAt
-    } = config;
+    const dateTimePattern =
+        /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+    const dateTimeMatch = value.match(dateTimePattern);
+
+    if (!dateTimeMatch) {
+        return false;
+    }
+
+    const [
+        ,
+        year,
+        month,
+        day,
+        hours,
+        minutes,
+        seconds,
+        timezone
+    ] = dateTimeMatch;
 
     if (
-        typeof method !== "string" ||
-        !ALLOWED_METHODS.includes(method.toUpperCase())
+        !isValidCalendarDate(
+            Number(year),
+            Number(month),
+            Number(day)
+        )
+    ) {
+        return false;
+    }
+
+    if (
+        Number(hours) > 23 ||
+        Number(minutes) > 59 ||
+        Number(seconds) > 59
+    ) {
+        return false;
+    }
+
+    if (timezone !== "Z") {
+        const [, offsetHours, offsetMinutes] =
+            timezone.match(/[+-](\d{2}):(\d{2})/);
+
+        if (
+            Number(offsetHours) > 23 ||
+            Number(offsetMinutes) > 59
+        ) {
+            return false;
+        }
+    }
+
+    return !Number.isNaN(Date.parse(value));
+}
+
+// Validate route configuration
+function validateRoute(route) {
+    if (
+        !route ||
+        typeof route !== "object" ||
+        Array.isArray(route)
+    ) {
+        throw new Error("configuration must be an object");
+    }
+
+    if (
+        typeof route.method !== "string" ||
+        !ALLOWED_METHODS.includes(route.method.toUpperCase())
     ) {
         throw new Error("Invalid HTTP method");
     }
 
     if (
-        typeof path !== "string" ||
-        !path.startsWith("/") ||
-        path.trim() === ""
+        typeof route.path !== "string" ||
+        !route.path.startsWith("/")
     ) {
-        throw new Error("Path must be a valid absolute route path");
+        throw new Error("valid absolute route path");
+    }
+
+    // Reject empty parameter names such as /users/:
+    if (/:($|[^a-zA-Z0-9_])/.test(route.path)) {
+        throw new Error("Invalid route pattern");
+    }
+
+    // Compile the pattern to detect malformed expressions
+    try {
+        pathToRegexp(route.path, []);
+    } catch (error) {
+        throw new Error("Invalid route pattern");
     }
 
     if (
-        successor !== undefined &&
+        route.successor !== undefined &&
         (
-            typeof successor !== "string" ||
-            !successor.startsWith("/") ||
-            successor.trim() === ""
+            typeof route.successor !== "string" ||
+            !route.successor.startsWith("/")
         )
     ) {
-        throw new Error("Successor must be a valid absolute route path");
+        throw new Error(
+            "Successor must be a valid absolute route path"
+        );
     }
 
-    if (deprecatedAt !== undefined && !isValidDate(deprecatedAt)) {
+    if (
+        route.deprecatedAt !== undefined &&
+        !isValidDate(route.deprecatedAt)
+    ) {
         throw new Error("Invalid deprecation date");
     }
 
-    if (sunsetAt !== undefined && !isValidDate(sunsetAt)) {
+    if (
+        route.sunsetAt !== undefined &&
+        !isValidDate(route.sunsetAt)
+    ) {
         throw new Error("Invalid sunset date");
     }
 
-    if (deprecatedAt && sunsetAt) {
-        if (new Date(sunsetAt) < new Date(deprecatedAt)) {
-            throw new Error("Sunset date cannot be before deprecation date");
-        }
+    if (
+        route.deprecatedAt &&
+        route.sunsetAt &&
+        new Date(route.sunsetAt) < new Date(route.deprecatedAt)
+    ) {
+        throw new Error(
+            "Sunset date cannot be before deprecation date"
+        );
     }
 }
 
-function registerRoute(config) {
-    validateRoute(config);
+// Register a route
+function registerRoute(route) {
+    validateRoute(route);
 
-    const {
-        method,
-        path,
-        successor,
-        deprecatedAt,
-        sunsetAt
-    } = config;
-
-    const key = `${method.toUpperCase()}:${path}`;
+    const method = route.method.toUpperCase();
+    const key = `${method}:${route.path}`;
 
     if (routes.has(key)) {
         throw new Error("Route is already registered");
     }
 
-    routes.set(key, {
-        method: method.toUpperCase(),
-        path,
-        successor,
-        deprecatedAt,
-        sunsetAt
-    });
+    const normalizedRoute = {
+        ...route,
+        method
+    };
 
-    return routes.get(key);
+    routes.set(key, normalizedRoute);
+
+    return normalizedRoute;
 }
 
+// Retrieve a registered route
 function getRoute(method, path) {
     const key = `${method.toUpperCase()}:${path}`;
-    return routes.get(key);
+
+    return routes.get(key) || null;
 }
 
+// Extract dynamic route parameters
+function extractRouteParams(routePath, requestPath) {
+    const keys = [];
+
+    const regex = pathToRegexp(routePath, keys);
+    const match = regex.exec(requestPath);
+
+    if (!match) {
+        return {};
+    }
+
+    const params = {};
+
+    keys.forEach((key, index) => {
+        params[key.name] = decodeURIComponent(match[index + 1]);
+    });
+
+    return params;
+}
+
+// Find matching route
 function findMatchingRoute(method, requestPath) {
     const normalizedMethod = method.toUpperCase();
 
-    // First priority: exact route matches
-    for (const route of routes.values()) {
-        if (
-            route.method === normalizedMethod &&
-            route.path === requestPath
-        ) {
-            return route;
-        }
+    // Exact match gets priority
+    const exactRoute = getRoute(normalizedMethod, requestPath);
+
+    if (exactRoute) {
+        return exactRoute;
     }
 
-    // Second priority: dynamic route matches
+    // Check dynamic routes
     for (const route of routes.values()) {
         if (route.method !== normalizedMethod) {
             continue;
@@ -141,44 +248,22 @@ function findMatchingRoute(method, requestPath) {
         }
     }
 
-    return undefined;
+    return null;
 }
 
-function extractRouteParams(routePath, requestPath) {
-    const keys = [];
-    const regex = pathToRegexp(routePath, keys);
-    const match = regex.exec(requestPath);
-
-    if (!match) {
-        return {};
-    }
-
-    const params = {};
-
-    keys.forEach((key, index) => {
-        const value = match[index + 1];
-
-        if (value !== undefined) {
-            try {
-                params[key.name] = decodeURIComponent(value);
-            } catch {
-                params[key.name] = value;
-            }
-        }
-    });
-
-    return params;
-}
-
+// Return all registered routes
 function getAllRoutes() {
     return Array.from(routes.values());
 }
 
+// Remove a registered route
 function removeRoute(method, path) {
     const key = `${method.toUpperCase()}:${path}`;
+
     return routes.delete(key);
 }
 
+// Clear registry
 function clearRegistry() {
     routes.clear();
 }

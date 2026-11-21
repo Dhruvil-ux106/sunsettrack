@@ -10,6 +10,8 @@ const {
     clearRegistry
 } = require("../src/registry");
 
+// Registration tests
+
 test("should register a deprecated route", () => {
     clearRegistry();
 
@@ -90,7 +92,7 @@ test("should clear all registered routes", () => {
     assert.strictEqual(getAllRoutes().length, 0);
 });
 
-// Validation tests
+// Configuration validation tests
 
 test("should reject missing configuration", () => {
     assert.throws(
@@ -195,4 +197,97 @@ test("should allow same path with different methods", () => {
     });
 
     assert.strictEqual(getAllRoutes().length, 2);
+});
+
+// Strict date validation tests
+
+test("should accept a valid YYYY-MM-DD date", () => {
+    clearRegistry();
+
+    const route = registerRoute({
+        method: "GET",
+        path: "/api/v1/users",
+        deprecatedAt: "2026-11-01"
+    });
+
+    assert.strictEqual(route.deprecatedAt, "2026-11-01");
+});
+
+test("should reject an impossible calendar date", () => {
+    assert.throws(
+        () => registerRoute({
+            method: "GET",
+            path: "/api/v1/users",
+            deprecatedAt: "2026-02-30"
+        }),
+        /Invalid deprecation date/
+    );
+});
+
+test("should reject an invalid month", () => {
+    assert.throws(
+        () => registerRoute({
+            method: "GET",
+            path: "/api/v1/users",
+            deprecatedAt: "2026-13-01"
+        }),
+        /Invalid deprecation date/
+    );
+});
+
+test("should reject ambiguous date formats", () => {
+    assert.throws(
+        () => registerRoute({
+            method: "GET",
+            path: "/api/v1/users",
+            deprecatedAt: "11/01/2026"
+        }),
+        /Invalid deprecation date/
+    );
+});
+
+test("should accept ISO date-time with explicit timezone", () => {
+    clearRegistry();
+
+    const route = registerRoute({
+        method: "GET",
+        path: "/api/v1/users",
+        deprecatedAt: "2026-11-01T10:30:00Z"
+    });
+
+    assert.strictEqual(
+        route.deprecatedAt,
+        "2026-11-01T10:30:00Z"
+    );
+});
+
+test("should reject date-time without explicit timezone", () => {
+    assert.throws(
+        () => registerRoute({
+            method: "GET",
+            path: "/api/v1/users",
+            deprecatedAt: "2026-11-01T10:30:00"
+        }),
+        /Invalid deprecation date/
+    );
+});
+
+test("should reject malformed route patterns", () => {
+    assert.throws(() => {
+        registerRoute({
+            method: "GET",
+            path: "/users/:id(",
+            successor: "/api/v2/users",
+        });
+    });
+});
+
+test("should reject route patterns with empty parameter names", () => {
+    assert.throws(() => {
+        registerRoute({
+            method: "GET",
+            path: "/users/:",
+            successor: "/api/v2/users",
+        });
+    });
 });
